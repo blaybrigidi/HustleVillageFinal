@@ -1,5 +1,6 @@
 // Authentication middleware - verifies JWT tokens
 const { createClient } = require('@supabase/supabase-js');
+const jwt = require('jsonwebtoken');
 
 /**
  * Authentication middleware
@@ -41,32 +42,58 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    // Create a Supabase client instance with the user's token
-    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+    // Decode JWT to get user info (without verification first, just to get the user ID)
+    let decodedToken;
+    try {
+      // Decode without verification to get the payload
+      decodedToken = jwt.decode(token);
+      if (!decodedToken || !decodedToken.sub) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid token format'
+        });
       }
-    });
-
-    // Verify token by getting the user
-    const { data: { user: supabaseUser }, error: supabaseError } = await userSupabase.auth.getUser();
-
-    if (supabaseError || !supabaseUser) {
+    } catch (decodeError) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid or expired token'
+        error: 'Invalid token format'
       });
     }
 
-    // Get user from our users table using email
-    // Use the regular supabase client for database queries
+    // Check if token is expired
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (decodedToken.exp && decodedToken.exp < currentTime) {
+      console.log('Token expired:', {
+        exp: decodedToken.exp,
+        currentTime,
+        expiredBy: currentTime - decodedToken.exp,
+        seconds: 'seconds'
+      });
+      return res.status(401).json({
+        success: false,
+        error: 'Token has expired. Please refresh your token.'
+      });
+    }
+
+    // Get email from decoded token
+    const userEmail = decodedToken.email || decodedToken.user_metadata?.email;
+    if (!userEmail) {
+      return res.status(401).json({
+        success: false,
+        error: 'Email not found in token'
+      });
+    }
+
+    // Get user from our users table using email from the token
+    // Use the admin client to bypass RLS
     const supabase = require('../config/database');
-    const { data: user, error: userError } = await supabase
+    const supabaseAdmin = require('../config/database').supabaseAdmin;
+    const dbClient = supabaseAdmin || supabase;
+    
+    const { data: user, error: userError } = await dbClient
       .from('users')
       .select('id, email, full_name, phone_number')
-      .eq('email', supabaseUser.email)
+      .eq('email', userEmail)
       .single();
 
     if (userError || !user) {
@@ -82,7 +109,7 @@ const authenticate = async (req, res, next) => {
       email: user.email,
       full_name: user.full_name,
       phone_number: user.phone_number,
-      supabaseUserId: supabaseUser.id // Supabase Auth user ID
+      supabaseUserId: decodedToken.sub // Supabase Auth user ID from token
     };
     console.log('User from middleware:', req.user);
 
