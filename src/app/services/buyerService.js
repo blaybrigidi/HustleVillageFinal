@@ -19,6 +19,8 @@ const getAllServices = async () => {
         description,
         category,
         price,
+        pricing_type,
+        image_urls,
         seller_id,
         created_at,
         seller:users!seller_id (
@@ -41,7 +43,7 @@ const getAllServices = async () => {
       // Fetch all services (exclude deleted services)
       const { data: servicesData, error: servicesError } = await supabase
         .from('services')
-        .select('id, title, description, category, price, seller_id, created_at')
+        .select('id, title, description, category, price, pricing_type, image_urls, seller_id, created_at')
         .eq('is_deleted', false)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -89,6 +91,8 @@ const getAllServices = async () => {
       description: service.description,
       category: service.category,
       price: service.price,
+      pricing_type: service.pricing_type || 'fixed',
+      image_urls: service.image_urls || [],
       sellerId: service.seller_id,
       sellerName: service.seller?.full_name || service.seller?.name || 'Unknown Seller',
       sellerEmail: service.seller?.email || null,
