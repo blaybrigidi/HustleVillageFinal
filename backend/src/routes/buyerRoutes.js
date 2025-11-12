@@ -1,0 +1,8 @@
+const express = require('express');
+const router = express.Router();
+const buyerController = require('../app/controllers/buyerController');
+
+// Buyer routes
+router.get('/services', buyerController.viewAllServices);
+
+module.exports = router; 

@@ -1,35 +1,43 @@
-# PowerShell script to start both backend and frontend servers
-# Run this script from the project root: .\start-dev.ps1
-
-Write-Host "🚀 Starting HustleVillage Development Servers..." -ForegroundColor Green
+# HustleVillage Development Startup Script
+Write-Host "🚀 Starting HustleVillage Development Environment..." -ForegroundColor Cyan
 Write-Host ""
 
-# Check if .env file exists
-if (-Not (Test-Path ".\.env")) {
-    Write-Host "⚠️  Warning: .env file not found in backend!" -ForegroundColor Yellow
-    Write-Host "Please create a .env file with your configuration." -ForegroundColor Yellow
-    Write-Host "See SETUP_GUIDE.md for details." -ForegroundColor Yellow
-    Write-Host ""
+# Check if .env files exist, if not copy from examples
+if (-not (Test-Path ".\backend\.env")) {
+    Write-Host "📝 Creating backend .env file..." -ForegroundColor Yellow
+    Copy-Item ".\backend\.env.example" ".\backend\.env"
 }
 
-# Start Backend Server
-Write-Host "📦 Starting Backend Server (Port 3000)..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD'; Write-Host '🔧 Backend Server' -ForegroundColor Blue; npm run dev"
-
-# Wait a moment for backend to initialize
-Start-Sleep -Seconds 3
-
-# Start Frontend Server
-Write-Host "🎨 Starting Frontend Server (Port 8080)..." -ForegroundColor Cyan
-$frontendPath = Join-Path $PWD "village-service-exchange-main\village-service-exchange-main"
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$frontendPath'; Write-Host '🎨 Frontend Server' -ForegroundColor Magenta; npm run dev"
+if (-not (Test-Path ".\frontend\.env")) {
+    Write-Host "📝 Creating frontend .env file..." -ForegroundColor Yellow
+    Copy-Item ".\frontend\.env.example" ".\frontend\.env"
+}
 
 Write-Host ""
-Write-Host "✅ Both servers are starting in separate windows!" -ForegroundColor Green
+Write-Host "✅ Environment files ready!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📝 Server Information:" -ForegroundColor White
-Write-Host "   Backend:  http://localhost:3000" -ForegroundColor White
-Write-Host "   Frontend: http://localhost:8080" -ForegroundColor White
+Write-Host "Starting servers..." -ForegroundColor Cyan
+Write-Host "  - Frontend: http://localhost:5173" -ForegroundColor Green
+Write-Host "  - Backend API: http://localhost:3000" -ForegroundColor Green
 Write-Host ""
-Write-Host "To stop servers: Close the PowerShell windows or press Ctrl+C in each" -ForegroundColor Yellow
+
+# Start backend in a new window
+$backendJob = Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\backend'; npm start" -PassThru
+
+# Wait a moment for backend to start
+Start-Sleep -Seconds 2
+
+# Start frontend in a new window
+$frontendJob = Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\frontend'; npm run dev" -PassThru
+
+Write-Host ""
+Write-Host "✅ Both servers started!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Press Ctrl+C to stop this script (servers will continue running in separate windows)" -ForegroundColor Yellow
+Write-Host ""
+
+# Keep script running
+while ($true) {
+    Start-Sleep -Seconds 1
+}
 
